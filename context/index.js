@@ -5,7 +5,7 @@ import UniswapV3Pool from '@uniswap/v3-core/artifacts/contracts/UniswapV3Pool.so
 import toast from 'react-hot-toast';
 
 import { FACTORY_ABI, FACTORY_ADDRESS } from './constants';
-import {} from '../utils/shortaddress';
+import { parseErrorMsg, shortenAddress } from '../utils/shortaddress';
 
 export const CONTEXT = React.createContext();
 
@@ -60,15 +60,81 @@ export const CONTEXT_Provider = ({ children }) => {
       notifySuccess('Successfully Completed');
       return poolAddress;
     } catch (error) {
+      const errorMsg = parseErrorMsg(error);
       setLoader(false);
-      notifyError('Error');
+      notifyError(errorMsg);
     }
   };
 
   // GET POOL DETAILS
+  async function getPoolData(poolContract, selectedNetwork, poolAddress) {
+    const [liquidity, fee, token0, token1] = await Promise.all([
+      poolContract.liquidity(),
+      poolContract.fee(),
+      poolContract.token0(),
+      poolContract.token1(),
+    ]);
+
+    return {
+      liquidity: liquidity.toString(),
+      fee: fee,
+      token_A: token0,
+      token_B: token1,
+      network: selectedNetwork.name,
+      poolAddress: poolAddress,
+    };
+  }
+
+  const GET_POOL_DETAILS = async (poolAddress, selectedNetwork) => {
+    try {
+      setLoader(true);
+      const PROVIDER = new ethers.providers.JsonRpcProvider(
+        selectedNetwork.rpcUrl
+      );
+
+      const poolContract = new Contract(
+        poolAddress,
+        UniswapV3Pool.abi,
+        PROVIDER
+      );
+
+      const poolData = await getPoolData(
+        poolContract,
+        selectedNetwork,
+        poolAddress
+      );
+
+      let liquidityArray = [];
+      const poolLists = localStorage.getItem('liquidityHistory');
+      if (poolLists) {
+        liquidityArray = JSON.parse(localStorage.getItem('liquidityHistory'));
+        liquidityArray.push(poolData);
+        localStorage.setItem(
+          'liquidityHistory',
+          JSON.stringify(liquidityArray)
+        );
+      } else {
+        liquidityArray.push(poolData);
+        localStorage.setItem(
+          'liquidityHistory',
+          JSON.stringify(liquidityArray)
+        );
+      }
+
+      setLoader(false);
+      notifySuccess('Successfully Completed');
+      return poolData;
+    } catch (error) {
+      const errorMsg = parseErrorMsg(error);
+      setLoader(false);
+      notifyError(errorMsg);
+    }
+  };
 
   return (
-    <CONTEXT.Provider value={{ DAPP_NAME, GET_POOL_ADDRESS }}>
+    <CONTEXT.Provider
+      value={{ DAPP_NAME, loader, GET_POOL_ADDRESS, GET_POOL_DETAILS }}
+    >
       {children}
     </CONTEXT.Provider>
   );
