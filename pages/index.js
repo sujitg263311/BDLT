@@ -50,6 +50,7 @@ const index = () => {
         <Networks
           setActiveComponent={setActiveComponent}
           activeNetwork={activeNetwork}
+          setActiveNetwork={setActiveNetwork}
         />
       ) : (
         ''
